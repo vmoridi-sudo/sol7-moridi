@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>داروخانه (Flask + MySQL)</title>
+  <style>
+    body { font-family: Tahoma, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #f5f7fa; }
+    h1 { color: #2c3e50; }
+    form, table, .box { background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    input, button { padding: .5rem; margin: .25rem; border: 1px solid #ccc; border-radius: 4px; }
+    button { background: #3498db; color: white; border: none; cursor: pointer; }
+    button:hover { background: #2980b9; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .5rem; text-align: center; border-bottom: 1px solid #eee; }
+    th { background: #ecf0f1; }
+    .row { display: flex; justify-content: space-between; align-items: center; padding: .4rem 0; border-bottom: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <h1>💊 داروخانه (Flask + MySQL)</h1>
+
+  <form action="/medicines" method="post">
+    <h3>افزودن دارو</h3>
+    <input name="name"  placeholder="نام دارو" required>
+    <input name="price" type="number" placeholder="قیمت (تومان)" required>
+    <input name="stock" type="number" placeholder="موجودی" value="0">
+    <button type="submit">افزودن</button>
+  </form>
+
+  <div class="box">
+    <h3>داروها</h3>
+    {% for m in medicines %}
+      <div class="row">
+        <span><b>{{ m.name }}</b> — قیمت: {{ m.price }}، موجودی: {{ m.stock }}</span>
+        <form action="/sell/{{ m.id }}" method="post" style="display:inline">
+          <input name="qty" type="number" min="1" value="1" style="width:60px">
+          <button type="submit">فروش</button>
+        </form>
+      </div>
+    {% else %}
+      <p>هنوز دارویی اضافه نشده.</p>
+    {% endfor %}
+  </div>
+
+  <h3>آخرین فروش‌ها</h3>
+  <table>
+    <tr><th>دارو</th><th>تعداد</th><th>مبلغ</th><th>زمان</th></tr>
+    {% for s in sales %}
+      <tr>
+        <td>{{ s.medicine.name }}</td>
+        <td>{{ s.quantity }}</td>
+        <td>{{ s.total }}</td>
+        <td>{{ s.sold_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4">فروشی ثبت نشده.</td></tr>
+    {% endfor %}
+  </table>
+</body>
+</html>

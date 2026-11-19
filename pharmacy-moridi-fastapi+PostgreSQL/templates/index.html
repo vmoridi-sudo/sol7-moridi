@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>داروخانه (FastAPI + MySQL)</title>
+  <style>
+    body { font-family: Tahoma, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #f5f7fa; }
+    h1 { color: #2c3e50; }
+    form, table, .box { background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    input, button { padding: .5rem; margin: .25rem; border: 1px solid #ccc; border-radius: 4px; }
+    button { background: #3498db; color: white; border: none; cursor: pointer; }
+    button:hover { background: #2980b9; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .5rem; text-align: center; border-bottom: 1px solid #eee; }
+    th { background: #ecf0f1; }
+    .row { display: flex; justify-content: space-between; align-items: center; padding: .4rem 0; border-bottom: 1px solid #eee; }
+    .msg { padding: .5rem; border-radius: 4px; margin: .5rem 0; display: none; }
+    .msg.ok  { background: #d4edda; color: #155724; }
+    .msg.err { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+  <h1>💊 داروخانه (FastAPI + MySQL)</h1>
+
+  <div id="msg" class="msg"></div>
+
+  <form id="add-form">
+    <h3>افزودن دارو</h3>
+    <input name="name"  placeholder="نام دارو" required>
+    <input name="price" type="number" placeholder="قیمت (تومان)" required>
+    <input name="stock" type="number" placeholder="موجودی" value="0">
+    <button type="submit">افزودن</button>
+  </form>
+
+  <div class="box">
+    <h3>داروها</h3>
+    <div id="medicines"></div>
+  </div>
+
+  <h3>آخرین فروش‌ها</h3>
+  <table>
+    <thead>
+      <tr><th>دارو</th><th>تعداد</th><th>مبلغ</th><th>زمان</th></tr>
+    </thead>
+    <tbody id="sales"></tbody>
+  </table>
+
+  <script>
+    function showMsg(text, ok = true) {
+      const el = document.getElementById("msg");
+      el.textContent = text;
+      el.className = "msg " + (ok ? "ok" : "err");
+      el.style.display = "block";
+      setTimeout(() => { el.style.display = "none"; }, 3000);
+    }
+
+    async function loadMedicines() {
+      const res = await fetch("/medicines");
+      const data = await res.json();
+      const box = document.getElementById("medicines");
+      if (data.length === 0) {
+        box.innerHTML = "<p>هنوز دارویی اضافه نشده.</p>";
+        return;
+      }
+      box.innerHTML = data.map(m => `
+        <div class="row">
+          <span><b>${m.name}</b> — قیمت: ${m.price.toLocaleString()}، موجودی: ${m.stock}</span>
+          <form onsubmit="sell(event, ${m.id})" style="display:inline">
+            <input name="qty" type="number" min="1" value="1" style="width:60px">
+            <button type="submit">فروش</button>
+          </form>
+        </div>
+      `).join("");
+    }
+
+    async function loadSales() {
+      const res = await fetch("/sales?limit=20");
+      const data = await res.json();
+      const tbody = document.getElementById("sales");
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4">فروشی ثبت نشده.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.map(s => `
+        <tr>
+          <td>${s.medicine_name}</td>
+          <td>${s.quantity}</td>
+          <td>${s.total.toLocaleString()}</td>
+          <td>${s.sold_at.replace("T", " ").slice(0, 16)}</td>
+        </tr>
+      `).join("");
+    }
+
+    document.getElementById("add-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const body = {
+        name:  form.name.value.trim(),
+        price: parseInt(form.price.value),
+        stock: parseInt(form.stock.value) || 0,
+      };
+      if (!body.name || isNaN(body.price)) {
+        showMsg("نام و قیمت را وارد کنید", false);
+        return;
+      }
+      const res = await fetch("/medicines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        showMsg("دارو اضافه شد ✅");
+        form.reset();
+        loadMedicines();
+      } else {
+        const err = await res.json();
+        showMsg("خطا: " + (err.detail || "نامشخص"), false);
+      }
+    });
+
+    async function sell(e, medicineId) {
+      e.preventDefault();
+      const qty = parseInt(e.target.qty.value) || 1;
+      const res = await fetch(`/medicines/${medicineId}/sell`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: qty }),
+      });
+      if (res.ok) {
+        showMsg("فروش ثبت شد ✅");
+        loadMedicines();
+        loadSales();
+      } else {
+        const err = await res.json();
+        showMsg("خطا: " + (err.detail || "نامشخص"), false);
+      }
+    }
+
+    loadMedicines();
+    loadSales();
+  </script>
+</body>
+</html>
